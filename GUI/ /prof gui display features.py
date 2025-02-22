@@ -5,8 +5,8 @@ from profile_page import ProfilePage
 from tutorial_page import TutorialPage
 
 class MainWindow(QWidget):
-    def _init_(self):
-        super()._init_()
+    def __init__(self):
+        super().__init__()
         self.setWindowTitle("Frailty Assessment Project")
         self.resize(1920, 1080)
 
@@ -42,7 +42,7 @@ class MainWindow(QWidget):
         """Switch to the Profile Page"""
         self.setCurrentWidget(self.profile_page)
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     app = QApplication([])
     window = MainWindow()
     window.show()
