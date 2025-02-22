@@ -1,4 +1,3 @@
-#profile page
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt5.QtCore import Qt
@@ -6,8 +5,8 @@ import os
 
 
 class ProfilePage(QWidget):
-    def _init_(self, parent):
-        super()._init_(parent)
+    def __init__(self, parent):
+        super().__init__(parent)
         self.parent = parent
         self.setWindowTitle("Profile Page")
         self.resize(1000, 800)
