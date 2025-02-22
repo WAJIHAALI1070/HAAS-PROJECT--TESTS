@@ -1,0 +1,135 @@
+import tkinter as tk
+from tkinter import messagebox
+import csv
+import subprocess
+import re
+
+# Function to save test results
+def save_test_result(test_name, output, attempt):
+    user_id = entry_id.get()
+    if not user_id:
+        messagebox.showerror("Error", "User ID missing!")
+        return
+
+    # Extract max time or distance from output
+    match = re.search(r"Maximum Distance:\s*([\d\.]+)cm|Maximum Time:\s*([\d\.]+)s", output)
+    if match:
+        max_value = match.group(1) or match.group(2)  # Pick the non-None value
+    else:
+        max_value = "0"
+
+    file_name = "frailty_data.csv"
+    rows = []
+
+    # Read existing data
+    try:
+        with open(file_name, "r", newline="") as file:
+            reader = csv.reader(file)
+            rows = list(reader)
+    except FileNotFoundError:
+        pass  # If file doesn't exist, create a new one
+
+    # Ensure headers exist
+    headers = ["ID", "Gender", "Age"]
+    test_columns = [f"{test_name} 1", f"{test_name} 2"]
+
+    if not rows:
+        rows.append(headers + test_columns)  # Create new file with headers
+    else:
+        for col in test_columns:
+            if col not in rows[0]:  # Add missing test columns
+                rows[0].append(col)
+
+    # Find or add user row
+    user_row = None
+    for row in rows[1:]:
+        if row[0] == user_id:
+            user_row = row
+            break
+
+    if not user_row:
+        user_row = [user_id, gender_var.get(), entry_age.get()] + ["0"] * (len(rows[0]) - 3)
+        rows.append(user_row)
+
+    # Find column index for the attempt
+    col_idx = rows[0].index(test_columns[attempt - 1])
+
+    if len(user_row) <= col_idx:
+        user_row.extend(["0"] * (col_idx - len(user_row) + 1))
+
+    # Only update the specific attempt if a new reading comes in
+    if max_value != "0":  # Don't overwrite zero values
+        user_row[col_idx] = max_value
+
+    # Write back to CSV
+    with open(file_name, "w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerows(rows)
+
+    messagebox.showinfo("Success", f"Saved: {test_name} {attempt} = {max_value}")
+
+# Function to start the test
+def start_test(test_name, attempt):
+    exe_file = test_executables[test_name]
+    try:
+        process = subprocess.Popen(exe_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+        output, error = process.communicate()
+
+        # Print full CLI output for verification
+        print(f"Full Output from {test_name} Attempt {attempt}:\n{output}")
+
+        if error:
+            messagebox.showerror("Error", f"Error running {exe_file}:\n{error}")
+
+        save_test_result(test_name, output, attempt)
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to run {exe_file}:\n{str(e)}")
+
+# Main GUI setup
+root = tk.Tk()
+root.title("Frailty Assessment System")
+root.geometry("500x400")
+
+# Title
+title_label = tk.Label(root, text="Frailty Assessment System", font=("Arial", 16, "bold"))
+title_label.pack(pady=20)
+
+# User Input Frame
+user_frame = tk.Frame(root)
+user_frame.pack()
+
+tk.Label(user_frame, text="User ID:").grid(row=0, column=0)
+entry_id = tk.Entry(user_frame)
+entry_id.grid(row=0, column=1)
+
+tk.Label(user_frame, text="Age:").grid(row=1, column=0)
+entry_age = tk.Entry(user_frame)
+entry_age.grid(row=1, column=1)
+
+tk.Label(user_frame, text="Gender:").grid(row=2, column=0)
+gender_var = tk.StringVar()
+tk.Radiobutton(user_frame, text="Male", variable=gender_var, value="Male").grid(row=2, column=1)
+tk.Radiobutton(user_frame, text="Female", variable=gender_var, value="Female").grid(row=2, column=2)
+
+tk.Button(user_frame, text="Next", command=lambda: test_frame.pack()).grid(row=3, column=1, pady=10)
+
+# Test Selection Frame
+test_frame = tk.Frame(root)
+
+test_executables = {
+    "Timed Up and Go (TUG)": "tug_test.exe",
+    "Functional Reach Test": "frt.exe",
+    "Seated Forward Bench Test": "Seated_Bench.exe",
+    "Grip Strength Test": "Grip_Strength.exe",
+    "Standing on One Leg Test": "solt_test.exe",
+    "Walking Speed Test": "Walking_Speed.exe"
+}
+
+for test in test_executables:
+    frame = tk.Frame(test_frame)
+    frame.pack(pady=5)
+    tk.Button(frame, text=f"{test} 1", command=lambda t=test: start_test(t, 1)).pack(side=tk.LEFT, padx=5)
+    tk.Button(frame, text=f"{test} 2", command=lambda t=test: start_test(t, 2)).pack(side=tk.RIGHT, padx=5)
+
+root.mainloop()
