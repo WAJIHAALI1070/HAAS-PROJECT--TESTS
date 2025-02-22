@@ -85,34 +85,39 @@ float leftFootElapsedTime = 0.0f;
 
 //DataLogging Function
 // Function to log the standing time for both feet
+#include <iostream>
+#include <fstream>
+#include <stdexcept>
+#include <algorithm>
+
 void logStandingOnOneLegTest(double rightFootTime, double leftFootTime) {
     std::string filename = "Standing_On_One_Leg_with_Eye_Open_Test_Results.csv";
-    std::fstream file(filename, std::ios::in | std::ios::out | std::ios::app);
+    std::ifstream infile(filename);
+    bool fileExists = infile.good(); // Check if file already exists
+    infile.close();
 
-    // Check if the file is open
-    if (!file.is_open()) {
-        throw std::runtime_error("Failed to open file: " + filename);
+    std::ofstream file(filename, std::ios::app);
+    if (!file) {
+        std::cerr << "Error: Unable to open file for writing.\n";
+        return;
     }
 
-    // Check if the file is empty (write header if needed)
-    file.seekg(0, std::ios::end);
-    bool isNewFile = (file.tellg() == 0);
-    file.seekg(0, std::ios::beg);
-
-    if (isNewFile) {
-        file << "Standing on One Leg with Eye Open (s) Right Foot,Standing on One Leg with Eye Open (s) Left Foot\n";
+    // Write the header only if the file is new
+    if (!fileExists) {
+        file << "Standing on One Leg with Eye Open (s) Right Foot,"
+            << "Standing on One Leg with Eye Open (s) Left Foot,"
+            << "Standing on One Leg with Eye Open (s)\n";
     }
 
-    // Write the data row
-    file << rightFootTime << "," << leftFootTime << "\n";
-    file.close();
+    double maxTime = std::max(rightFootTime, leftFootTime);
+    file << rightFootTime << "," << leftFootTime << "," << maxTime << "\n";
+
+    std::cout << "Standing on One Leg Test data logged successfully.\n";
 }
-
-
 
 // Constants for stability detection
 const int stabilityFramesThreshold = 17; // Number of frames to check for stability
-const float stabilityYThreshold = 0.05f; // Y-coordinate fluctuation threshold for stability
+const float stabilityYThreshold = 0.1f; // Y-coordinate fluctuation threshold for stability
 //const float stabilityXThreshold = 0.05f; // X-coordinate fluctuation threshold for stability 0.05f; // X-coordinate fluctuation threshold for stability
 
 // Deques to store Y-coordinate history for stability detection
@@ -198,51 +203,75 @@ int main() {
 
                                 Joint joints[JointType_Count];
                                 body->GetJoints(_countof(joints), joints);
+                                std::vector<cv::Point> jointPoints;  // Store valid joint positions
 
-                                float leftFootY = 0, rightFootY = 0;
-
-                                // Only draw circles for the left and right foot joints
-                                for (int j = 0; j < JointType_Count; j++) {
-                                    if (joints[j].TrackingState == TrackingState_Tracked &&
-                                        (j == JointType_FootLeft || j == JointType_FootRight)) {
-
-                                        // Use the raw camera space coordinates (meters)
-                                        float x = joints[j].Position.X;
-                                        float y = joints[j].Position.Y;
-                                        float z = joints[j].Position.Z;
-
-                                        // Save specific Y values for the joints
-                                        if (j == JointType_FootLeft) {
-                                            leftFootY = y;
-                                        }
-                                        else if (j == JointType_FootRight) {
-                                            rightFootY = y;
-                                        }
-
-                                        // Convert camera space to color space only for visualization
+                                for (int j = 0; j < JointType_Count; ++j) {
+                                    if (joints[j].TrackingState == TrackingState_Tracked) {
                                         ColorSpacePoint colorPoint;
                                         coordinateMapper->MapCameraPointToColorSpace(joints[j].Position, &colorPoint);
-                                        int cx = static_cast<int>(colorPoint.X); // Pixel coordinates for the live feed
-                                        int cy = static_cast<int>(colorPoint.Y);
 
-                                        // Ensure the pixel coordinates are within bounds before drawing
-                                        if (cx >= 0 && cx < width && cy >= 0 && cy < height) {
-                                            cv::circle(bgrMat, cv::Point(cx, cy), 10, cv::Scalar(255, 0, 0), -1); // Draw a circle with radius 10
+                                        int x = static_cast<int>(colorPoint.X);
+                                        int y = static_cast<int>(colorPoint.Y);
 
-                                            // Add text label next to the joints
-                                            if (j == JointType_FootLeft) {
-                                                cv::putText(bgrMat, "Left Foot", cv::Point(cx + 10, cy), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 0), 2);
-                                            }
-                                            else if (j == JointType_FootRight) {
-                                                cv::putText(bgrMat, "Right Foot", cv::Point(cx + 10, cy), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 0), 2);
-                                            }
+                                        // Debugging output
+                                        //std::cout << "Joint " << j << " -> X: " << x << ", Y: " << y << std::endl;
 
-                                            // Display the decimal camera space coordinates
-                                            cv::putText(bgrMat, "X: " + std::to_string(x) + " Y: " + std::to_string(y) + " Z: " + std::to_string(z),
-                                                cv::Point(cx + 10, cy + 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                                        if (x > 0 && x < width && y > 0 && y < height) {
+                                            jointPoints.push_back(cv::Point(x, y));
                                         }
                                     }
                                 }
+
+                                // If we have valid joint points, draw bounding box
+                                if (!jointPoints.empty()) {
+                                    cv::Rect boundingRect = cv::boundingRect(jointPoints);
+                                    cv::rectangle(bgrMat, boundingRect, cv::Scalar(0, 255, 0), 2);
+
+                                }
+                                float leftFootY = 0, rightFootY = 0;
+
+                                // Only draw circles for the left and right foot joints
+                                //for (int j = 0; j < JointType_Count; j++) {
+                                //    if (joints[j].TrackingState == TrackingState_Tracked &&
+                                //        (j == JointType_FootLeft || j == JointType_FootRight)) {
+
+                                //        // Use the raw camera space coordinates (meters)
+                                //        float x = joints[j].Position.X;
+                                //        float y = joints[j].Position.Y;
+                                //        float z = joints[j].Position.Z;
+
+                                //        // Save specific Y values for the joints
+                                //        if (j == JointType_FootLeft) {
+                                //            leftFootY = y;
+                                //        }
+                                //        else if (j == JointType_FootRight) {
+                                //            rightFootY = y;
+                                //        }
+
+                                //        // Convert camera space to color space only for visualization
+                                //        ColorSpacePoint colorPoint;
+                                //        coordinateMapper->MapCameraPointToColorSpace(joints[j].Position, &colorPoint);
+                                //        int cx = static_cast<int>(colorPoint.X); // Pixel coordinates for the live feed
+                                //        int cy = static_cast<int>(colorPoint.Y);
+
+                                //        // Ensure the pixel coordinates are within bounds before drawing
+                                //        if (cx >= 0 && cx < width && cy >= 0 && cy < height) {
+                                //            cv::circle(bgrMat, cv::Point(cx, cy), 10, cv::Scalar(255, 0, 0), -1); // Draw a circle with radius 10
+
+                                //            // Add text label next to the joints
+                                //            if (j == JointType_FootLeft) {
+                                //                cv::putText(bgrMat, "Left Foot", cv::Point(cx + 10, cy), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 0), 2);
+                                //            }
+                                //            else if (j == JointType_FootRight) {
+                                //                cv::putText(bgrMat, "Right Foot", cv::Point(cx + 10, cy), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 0), 2);
+                                //            }
+
+                                //            // Display the decimal camera space coordinates
+                                //            cv::putText(bgrMat, "X: " + std::to_string(x) + " Y: " + std::to_string(y) + " Z: " + std::to_string(z),
+                                //                cv::Point(cx + 10, cy + 20), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                                //        }
+                                //    }
+                                //}
 
                                 // Update history
                                 if (leftFootYHistory.size() >= stabilityFramesThreshold) leftFootYHistory.pop_front();
@@ -360,9 +389,9 @@ int main() {
                                 if (isTestCompleted)
                                 {
                                     //put text to display test completed
-                                    cv::putText(bgrMat, "Test Completed", cv::Point(50, 50), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 0), 2);
-                                    cv::putText(bgrMat, "Right Foot Time: " + std::to_string(rightFootElapsedTime), cv::Point(50, 100), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 0), 2);
-                                    cv::putText(bgrMat, "Left Foot Time: " + std::to_string(leftFootElapsedTime), cv::Point(50, 150), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 0), 2);
+                                    cv::putText(bgrMat, "Test Completed", cv::Point(50, 50), cv::FONT_HERSHEY_COMPLEX, 1, cv::Scalar(0, 0, 0), 2);
+                                    cv::putText(bgrMat, "Right Foot Time: " + std::to_string(rightFootElapsedTime), cv::Point(50, 550), cv::FONT_HERSHEY_COMPLEX, 1, cv::Scalar(0, 0, 0), 2);
+                                    cv::putText(bgrMat, "Left Foot Time: " + std::to_string(leftFootElapsedTime), cv::Point(50, 600), cv::FONT_HERSHEY_COMPLEX, 1, cv::Scalar(0, 0, 0), 2);
                                     //speak("Test Completed");
                                 }
 
