@@ -1,4 +1,3 @@
-#tutorial page
 import csv
 import os
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
@@ -6,8 +5,8 @@ from PyQt5.QtCore import Qt
 import subprocess
 
 class TutorialPage(QWidget):
-    def _init_(self, parent=None):
-        super()._init_(parent)
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.setWindowTitle("Tutorial Page")
         self.resize(800, 600)
 
