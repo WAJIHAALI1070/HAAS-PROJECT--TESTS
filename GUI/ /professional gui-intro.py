@@ -1,12 +1,11 @@
-#intro page
 # intro_page.py
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
 class IntroPage(QWidget):
-    def _init_(self, parent=None):  # Add parent argument
-        super()._init_(parent)  # Pass parent to QWidget
+    def __init__(self, parent=None):  # Add parent argument
+        super().__init__(parent)  # Pass parent to QWidget
         self.setWindowTitle("Introduction Page")
         self.resize(1920, 1080)
 
