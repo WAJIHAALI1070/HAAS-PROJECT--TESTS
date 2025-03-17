@@ -1,0 +1,22 @@
+import subprocess
+import time
+import os
+
+# Path to your compiled .exe file
+exe_path = r"C:\Users\DELL\source\repos\HAAS_PROJECT\x64\Debug\HAAS_PROJECT.exe"
+
+# Path where C++ saves the image
+image_path = r"D:\PythonProject1\captured_image.png"
+
+# Run the .exe file
+subprocess.run(exe_path)
+
+# Wait for the image to be captured
+time.sleep(2)  # Adjust delay if needed
+
+# Check if the image exists
+if os.path.exists(image_path):
+    print("✅ Image successfully captured!")
+else:
+    print("❌ Image not found!")
+
