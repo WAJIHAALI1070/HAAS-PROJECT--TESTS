@@ -1,0 +1,53 @@
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <Kinect.h>
+
+using namespace std;
+using namespace cv;
+
+int main() {
+    IKinectSensor* kinectSensor = nullptr;
+    IColorFrameSource* colorFrameSource = nullptr;
+    IColorFrameReader* colorFrameReader = nullptr;
+
+    // Initialize Kinect
+    if (FAILED(GetDefaultKinectSensor(&kinectSensor)) || kinectSensor == nullptr) {
+        cout << "Failed to find Kinect Sensor!" << endl;
+        return -1;
+    }
+
+    kinectSensor->Open();
+    kinectSensor->get_ColorFrameSource(&colorFrameSource);
+    colorFrameSource->OpenReader(&colorFrameReader);
+
+    const int width = 1920, height = 1080;  // Kinect resolution
+    Mat frame(height, width, CV_8UC4);
+    vector<BYTE> buffer(width * height * 4);
+
+    while (true) {
+        IColorFrame* colorFrame = nullptr;
+        if (SUCCEEDED(colorFrameReader->AcquireLatestFrame(&colorFrame))) {
+            colorFrame->CopyConvertedFrameDataToArray(buffer.size(), buffer.data(), ColorImageFormat_Bgra);
+            memcpy(frame.data, buffer.data(), buffer.size());
+            imshow("Kinect Live Feed", frame);
+        }
+        if (colorFrame) colorFrame->Release();
+
+        // Capture Image on 'C' Key Press
+        char key = waitKey(1);
+        if (key == 'c' || key == 'C') {
+            imwrite("captured_image.png", frame);
+            cout << "Image Captured and Saved!" << endl;
+        }
+        if (key == 27) break;  // Exit on 'ESC'
+    }
+
+    // Cleanup
+    colorFrameReader->Release();
+    colorFrameSource->Release();
+    kinectSensor->Close();
+    kinectSensor->Release();
+
+    return 0;
+}
+
