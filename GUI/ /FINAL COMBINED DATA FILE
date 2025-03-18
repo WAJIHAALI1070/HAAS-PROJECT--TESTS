@@ -1,0 +1,88 @@
+import pandas as pd
+import os
+
+folder_path = "D:\\PythonProject1"
+patient_file = os.path.join("Patient_Data.csv")  # Path to patient data
+output_path = os.path.join("Combined_Data.csv")  # Final combined data file
+
+# Correct headers for final CSV
+final_headers = [
+    "Recipient ID",
+    "Age",
+    "Gender",
+    "Standing on One Leg with Eye Open (s)",
+    "Time Up and Go Test (s)",
+    "Walking Speed Test (s)",
+    "Functional Reach Test (cm)",
+    "Seated Forward Bench Test (cm)"
+]
+
+# Define test types (time-based: min, distance-based: max)
+test_types = {
+    "Standing_on_One_Leg_with_Eye_Open_Test": "time",
+    "Time_Up_and_Go_Test": "time",
+    "Walking_Speed_Test": "time",
+    "Functional_Reach_Test": "distance",
+    "Seated_Forward_Bend_Test": "distance"
+}
+
+# Load Patient Data
+patient_df = pd.read_csv(patient_file)
+
+# Process test files and store results
+all_results = []
+
+for _, patient in patient_df.iterrows():
+    patient_id = patient["Recipient ID"]
+    age = patient["Age"]
+    gender = patient["Gender"]
+
+    final_results = {
+        "Recipient ID": patient_id,
+        "Age": age,
+        "Gender": gender
+    }
+
+    for test_name, test_type in test_types.items():
+        file_1 = os.path.join(folder_path, f"{test_name}_Results_1.csv")
+        file_2 = os.path.join(folder_path, f"{test_name}_Results_2.csv")
+
+        # Read CSVs
+        df1 = pd.read_csv(file_1)
+        df2 = pd.read_csv(file_2)
+
+        # Extract column names
+        col_name_1 = df1.columns[0]
+        col_name_2 = df2.columns[0]
+
+        # Convert to numeric and handle "NULL" values
+        df1[col_name_1] = pd.to_numeric(df1[col_name_1], errors='coerce')
+        df2[col_name_2] = pd.to_numeric(df2[col_name_2], errors='coerce')
+
+        # Drop NaN values
+        df1 = df1.dropna(subset=[col_name_1])
+        df2 = df2.dropna(subset=[col_name_2])
+
+        # Compute min/max based on test type
+        if test_type == "distance":
+            final_results[test_name] = max(df1[col_name_1].max(), df2[col_name_2].max())
+        else:
+            final_results[test_name] = min(df1[col_name_1].min(), df2[col_name_2].min())
+
+    all_results.append(final_results)
+
+# Convert to DataFrame
+test_results_df = pd.DataFrame(all_results)
+test_results_df.columns = final_headers  # Assign correct headers
+
+# Append to Combined Data while keeping previous records
+if os.path.exists(output_path):
+    existing_df = pd.read_csv(output_path)
+    final_combined_df = pd.concat([existing_df, test_results_df], ignore_index=True)
+else:
+    final_combined_df = test_results_df
+
+# Save Final CSV
+final_combined_df.to_csv(output_path, index=False)
+
+print(f"✅ File updated successfully at: {output_path}")
