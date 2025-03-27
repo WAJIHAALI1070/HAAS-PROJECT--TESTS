@@ -1,4 +1,4 @@
-
+#kinect flipped feed with image capture in the same path 
 #include <Kinect.h>
 #include <opencv2/opencv.hpp>
 #include <iostream>
@@ -21,6 +21,14 @@ int main() {
 
     // Create an OpenCV window
     cv::namedWindow("Kinect Feed", cv::WINDOW_AUTOSIZE);
+
+    // Define bounding rectangle parameters
+    int rectWidth = 500;  // Larger width
+    int rectHeight = 400; // Larger height
+    int thickness = 6;    // Thicker border
+
+    // Path to save the captured image
+    std::string savePath = "C:\\Users\\DELL\\source\\repos\\HAAS_PROJECT\\x64\\Debug\\captured_frame.jpg";
 
     // Frame loop
     while (true) {
@@ -51,17 +59,32 @@ int main() {
                 cv::cvtColor(colorMat, bgrMat, cv::COLOR_BGRA2BGR);
 
                 // Flip the image horizontally
-                cv::Mat flippedMat;
-                cv::flip(bgrMat, flippedMat, 1);
+                cv::flip(bgrMat, bgrMat, 1);
 
-                // Display the flipped image in the OpenCV window
-                cv::imshow("Kinect Feed", flippedMat);
+                // Define bounding rectangle position (centered)
+                int rectX = (width - rectWidth) / 2;
+                int rectY = (height - rectHeight) / 2;
+                cv::Rect boundingRect(rectX, rectY, rectWidth, rectHeight);
+
+                // Draw bounding rectangle
+                cv::rectangle(bgrMat, boundingRect, cv::Scalar(0, 255, 0), thickness);
+
+                // Display the image in the OpenCV window
+                cv::imshow("Kinect Feed", bgrMat);
+
+                // Capture frame inside bounding box when space bar is pressed
+                if (cv::waitKey(30) == 32) { // Space bar key
+                    cv::Mat capturedFrame = bgrMat(boundingRect).clone();
+                    cv::imwrite(savePath, capturedFrame);
+                    std::cout << "Captured frame saved at: " << savePath << std::endl;
+                    break; // Exit program after capturing
+                }
             }
 
             // Clean up
             delete[] colorBuffer;
             frame->Release();
-            frameDescription->Release(); // Release the frame description
+            frameDescription->Release();
         }
         else {
             std::cout << "Failed to capture frame." << std::endl;
